@@ -150,6 +150,15 @@ def _run_http(transport: str, host: str, port: int, token: str) -> None:
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.responses import JSONResponse
 
+    # FastMCP was built with host 127.0.0.1, so it only accepts localhost Host
+    # headers. Behind a tunnel the Host is the public name; the bearer token
+    # is the access control here.
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    mcp.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
     app = mcp.streamable_http_app() if transport == "streamable-http" else mcp.sse_app()
 
     class BearerAuth(BaseHTTPMiddleware):
