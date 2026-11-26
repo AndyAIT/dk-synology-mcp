@@ -98,9 +98,10 @@ def register_sysinfo_tools(mcp, conn_mgr) -> None:
         try:
             sys_client = _sys(params.nas)
             result = sys_client.get_all_system_utilization()
-            if not result or "data" not in result:
+            if not result:
                 return error_response("Could not retrieve utilization data")
-            data = result["data"]
+            # synology-api may return the payload already unwrapped from "data"
+            data = result.get("data", result)
             cpu = data.get("cpu", {})
             memory = data.get("memory", {})
 
