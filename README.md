@@ -113,6 +113,8 @@ SYNOLOGY_DEFAULT_NAS=ds923
 SYNOLOGY_LOG_LEVEL=INFO
 ```
 
+**QuickConnect (no port forwarding):** set `SYNOLOGY_NAS1_QUICKCONNECT` to the QuickConnect ID (or `<id>.quickconnect.to`); `HOST`/`PORT` then become optional. The connection goes through the QuickConnect relay and takes precedence over `HOST`.
+
 #### Multi-NAS setup
 
 Add additional NAS units with incrementing numbers (up to 9):
