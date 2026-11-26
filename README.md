@@ -265,6 +265,20 @@ docker build -t synology-mcp .
 docker run --env-file .env -i synology-mcp
 ```
 
+### Config file on a mounted volume
+
+Instead of passing every NAS variable to the container, put them in a dotenv file
+on a volume and set `SYNOLOGY_ENV_FILE`:
+
+```yaml
+    environment:
+      SYNOLOGY_ENV_FILE: /app/config/synology.env
+    volumes:
+      - ./synology-mcp/config:/app/config:ro
+```
+
+The file uses the same `SYNOLOGY_NASn_*` variables as `.env`. Keep it out of git.
+
 ### HTTP transports (network-accessible)
 
 Set `MCP_TRANSPORT` to `streamable-http` (recommended) or `sse`, or pass `--transport`.

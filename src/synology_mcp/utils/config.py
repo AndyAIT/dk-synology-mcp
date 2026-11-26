@@ -91,8 +91,13 @@ def load_config() -> ServerConfig:
     Supports SYNOLOGY_NAS1_*, SYNOLOGY_NAS2_*, ... SYNOLOGY_NAS9_* patterns.
     Each NAS is reached either by SYNOLOGY_NASn_HOST or, if set, by
     SYNOLOGY_NASn_QUICKCONNECT (which takes precedence).
+    SYNOLOGY_ENV_FILE may name a dotenv file (e.g. a mounted volume); real
+    environment variables still win over values in the file.
     """
-    load_dotenv()
+    env_file = os.getenv("SYNOLOGY_ENV_FILE")
+    if env_file and not os.path.isfile(env_file):
+        raise FileNotFoundError(f"SYNOLOGY_ENV_FILE not found: {env_file}")
+    load_dotenv(env_file) if env_file else load_dotenv()
 
     config = ServerConfig(
         log_level=os.getenv("SYNOLOGY_LOG_LEVEL", "INFO"),
