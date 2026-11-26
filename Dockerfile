@@ -17,7 +17,7 @@ COPY src/ src/
 RUN pip install --no-cache-dir .
 
 # The MCP server communicates over stdio by default.
-# For SSE transport, override CMD with: synology-mcp --transport sse --port 8080
-EXPOSE 8080
+# For HTTP, set MCP_TRANSPORT=streamable-http and MCP_AUTH_TOKEN (listens on MCP_HTTP_PORT, default 8000)
+EXPOSE 8000
 
 ENTRYPOINT ["synology-mcp"]

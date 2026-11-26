@@ -265,12 +265,16 @@ docker build -t synology-mcp .
 docker run --env-file .env -i synology-mcp
 ```
 
-### SSE transport (network-accessible)
+### HTTP transports (network-accessible)
 
-Uncomment the relevant lines in `docker-compose.yml`, or run:
+Set `MCP_TRANSPORT` to `streamable-http` (recommended) or `sse`, or pass `--transport`.
+HTTP transports require `MCP_AUTH_TOKEN`; clients must send `Authorization: Bearer <token>`.
+`GET /health` needs no token. `MCP_HTTP_HOST` (default `0.0.0.0`) and `MCP_HTTP_PORT` (default `8000`)
+control the listener. Streamable HTTP is served at `/mcp`.
 
 ```bash
-docker run --env-file .env -p 8080:8080 synology-mcp --transport sse --port 8080
+docker run --env-file .env -e MCP_TRANSPORT=streamable-http -e MCP_AUTH_TOKEN=... \
+  -p 8000:8000 synology-mcp
 ```
 
 ## Multi-NAS Usage

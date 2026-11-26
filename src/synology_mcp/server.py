@@ -142,9 +142,57 @@ def _register_all_tools(server: FastMCP) -> None:
 _register_all_tools(mcp)
 
 
+def _run_http(transport: str, host: str, port: int, token: str) -> None:
+    """Serve over HTTP, requiring a bearer token on every request."""
+    import hmac
+
+    import uvicorn
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    app = mcp.streamable_http_app() if transport == "streamable-http" else mcp.sse_app()
+
+    class BearerAuth(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            if request.url.path == "/health":
+                return JSONResponse({"status": "ok"})
+            supplied = request.headers.get("authorization", "")
+            if not hmac.compare_digest(supplied, f"Bearer {token}"):
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
+    app.add_middleware(BearerAuth)
+
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
 def main():
-    """CLI entry point."""
-    mcp.run()
+    """CLI entry point.
+
+    Transport is chosen by --transport or MCP_TRANSPORT (stdio, streamable-http,
+    sse). HTTP transports need MCP_AUTH_TOKEN and listen on MCP_HTTP_HOST:MCP_HTTP_PORT.
+    """
+    import argparse
+    import os
+
+    parser = argparse.ArgumentParser(prog="synology-mcp")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "streamable-http", "sse"],
+        default=os.environ.get("MCP_TRANSPORT", "stdio"),
+    )
+    parser.add_argument("--host", default=os.environ.get("MCP_HTTP_HOST", "0.0.0.0"))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("MCP_HTTP_PORT", "8000")))
+    args = parser.parse_args()
+
+    if args.transport == "stdio":
+        mcp.run()
+        return
+
+    token = os.environ.get("MCP_AUTH_TOKEN", "")
+    if not token:
+        sys.exit("MCP_AUTH_TOKEN is required for HTTP transports")
+    _run_http(args.transport, args.host, args.port, token)
 
 
 if __name__ == "__main__":
