@@ -48,7 +48,7 @@ def register_system_tools(mcp, conn_mgr) -> None:
                 ]
                 nas_list.append({
                     "name": name,
-                    "host": nas_cfg.host,
+                    "host": nas_cfg.display_host,
                     "port": nas_cfg.port,
                     "secure": nas_cfg.secure,
                     "dsm_version": nas_cfg.dsm_version,
@@ -196,7 +196,7 @@ def register_system_tools(mcp, conn_mgr) -> None:
                 ],
             },
             "configured_nas": [
-                {"name": c.name, "host": c.host, "is_default": c.name == config.default_nas}
+                {"name": c.name, "host": c.display_host, "is_default": c.name == config.default_nas}
                 for c in config.nas_configs.values()
             ],
         }

@@ -10,33 +10,32 @@ import sys
 import threading
 from typing import Any, Optional, Type
 
-from synology_api import filestation, downloadstation, cloud_sync, docker_api
-from synology_api.core_sys_info import SysInfo
-from synology_api.core_backup import Backup
-from synology_api.core_active_backup import ActiveBackupBusiness
-from synology_api.core_package import Package
-from synology_api.core_user import User
-from synology_api.core_group import Group
-from synology_api.core_share import Share, SharePermission
-from synology_api.core_certificate import Certificate
-from synology_api.task_scheduler import TaskScheduler
-from synology_api.event_scheduler import EventScheduler
-from synology_api.photos import Photos
-from synology_api.snapshot import Snapshot
-from synology_api.virtualization import Virtualization
-from synology_api.vpn import VPN
-from synology_api.log_center import LogCenter
-from synology_api.security_advisor import SecurityAdvisor
-from synology_api.universal_search import UniversalSearch
-from synology_api.usb_copy import USBCopy
+from synology_api import cloud_sync, docker_api, downloadstation, filestation
 from synology_api.audiostation import AudioStation
-from synology_api.notestation import NoteStation
-from synology_api.drive_admin_console import AdminConsole
+from synology_api.core_active_backup import ActiveBackupBusiness
+from synology_api.core_backup import Backup
+from synology_api.core_certificate import Certificate
+from synology_api.core_group import Group
+from synology_api.core_package import Package
+from synology_api.core_share import Share, SharePermission
+from synology_api.core_sys_info import SysInfo
+from synology_api.core_user import User
 from synology_api.dhcp_server import DhcpServer
 from synology_api.directory_server import DirectoryServer
+from synology_api.drive_admin_console import AdminConsole
+from synology_api.event_scheduler import EventScheduler
+from synology_api.log_center import LogCenter
+from synology_api.notestation import NoteStation
+from synology_api.photos import Photos
+from synology_api.security_advisor import SecurityAdvisor
+from synology_api.snapshot import Snapshot
+from synology_api.task_scheduler import TaskScheduler
+from synology_api.universal_search import UniversalSearch
+from synology_api.usb_copy import USBCopy
+from synology_api.virtualization import Virtualization
+from synology_api.vpn import VPN
 
 from .config import NasConfig, ServerConfig
-
 
 # Map of service name -> (module class, extra kwargs)
 SERVICE_REGISTRY: dict[str, Type] = {
@@ -116,26 +115,33 @@ class ConnectionManager:
         """Instantiate a synology-api client for the given service and NAS."""
         cls = SERVICE_REGISTRY[service]
         kwargs: dict[str, Any] = {
-            "ip_address": nas_cfg.host,
-            "port": str(nas_cfg.port),
             "username": nas_cfg.username,
             "password": nas_cfg.password,
-            "secure": nas_cfg.secure,
             "cert_verify": nas_cfg.cert_verify,
             "dsm_version": nas_cfg.dsm_version,
         }
+        if nas_cfg.quickconnect:
+            # Relay-based access via Synology QuickConnect; host/port are not used.
+            kwargs["quickconnect_id"] = nas_cfg.quickconnect
+            # The DSM 7 Noise-handshake login is rejected (error 414) through the relay;
+            # the standard auth.cgi login works on DSM 7 and is used instead.
+            kwargs["dsm_version"] = min(nas_cfg.dsm_version, 6)
+        else:
+            kwargs.update(ip_address=nas_cfg.host, port=str(nas_cfg.port), secure=nas_cfg.secure)
         if nas_cfg.otp_code:
             kwargs["otp_code"] = nas_cfg.otp_code
 
-        print(f"Connecting to {nas_cfg.name} ({nas_cfg.host}) — {service}...", file=sys.stderr)
+        print(f"Connecting to {nas_cfg.name} ({nas_cfg.display_host}) — {service}...", file=sys.stderr)
         try:
             client = cls(**kwargs)
             print(f"  Connected: {nas_cfg.name}/{service}", file=sys.stderr)
             return client
         except Exception as e:
+            # Library errors can embed the relay URL, which contains the QuickConnect ID.
+            detail = type(e).__name__ if nas_cfg.quickconnect else str(e)
             raise ConnectionError(
-                f"Failed to connect to {nas_cfg.name} ({nas_cfg.host}) for {service}: {e}"
-            ) from e
+                f"Failed to connect to {nas_cfg.name} ({nas_cfg.display_host}) for {service}: {detail}"
+            ) from (None if nas_cfg.quickconnect else e)
 
     def disconnect_all(self) -> None:
         """Logout and clean up all cached clients."""
