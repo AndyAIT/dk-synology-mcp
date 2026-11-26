@@ -112,8 +112,12 @@ def register_backup_tools(mcp, conn_mgr) -> None:
         try:
             bk = _bk(params.nas)
             result = bk.integrity_check_run(task_id=params.task_id)
-            if not result or "data" not in result:
+            if not isinstance(result, dict) or not result.get("success", "data" in result):
                 return error_response("Could not start integrity check")
-            return json.dumps(result["data"], indent=2, default=str)
+            return json.dumps(
+                {"status": "started", "task_id": params.task_id, **(result.get("data") or {})},
+                indent=2,
+                default=str,
+            )
         except Exception as e:
             return handle_synology_error(e, "Integrity check")
