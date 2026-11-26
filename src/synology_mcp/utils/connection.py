@@ -12,6 +12,7 @@ from typing import Any, Optional, Type
 
 from synology_api import cloud_sync, docker_api, downloadstation, filestation
 from synology_api.audiostation import AudioStation
+from synology_api.base_api import BaseApi
 from synology_api.core_active_backup import ActiveBackupBusiness
 from synology_api.core_backup import Backup
 from synology_api.core_certificate import Certificate
@@ -79,6 +80,7 @@ class ConnectionManager:
     def __init__(self, config: ServerConfig) -> None:
         self._config = config
         self._clients: dict[str, Any] = {}  # key: "{nas_name}:{service}"
+        self._sessions: dict[str, Any] = {}  # one authenticated session per NAS
         self._lock = threading.Lock()
 
     @property
@@ -133,7 +135,15 @@ class ConnectionManager:
 
         print(f"Connecting to {nas_cfg.name} ({nas_cfg.display_host}) — {service}...", file=sys.stderr)
         try:
-            client = cls(**kwargs)
+            # synology-api keeps a process-wide BaseApi.shared_session that every client
+            # reuses, even for a different NAS. Point it at this NAS's own session
+            # (or None to force a fresh login) and clear it again afterwards.
+            BaseApi.shared_session = self._sessions.get(nas_cfg.name)
+            try:
+                client = cls(**kwargs)
+            finally:
+                BaseApi.shared_session = None
+            self._sessions[nas_cfg.name] = client.session
             print(f"  Connected: {nas_cfg.name}/{service}", file=sys.stderr)
             return client
         except Exception as e:
@@ -152,6 +162,7 @@ class ConnectionManager:
                 except Exception:
                     pass
             self._clients.clear()
+            self._sessions.clear()
 
     def disconnect_nas(self, nas_name: str) -> None:
         """Disconnect all services for a specific NAS."""
@@ -163,6 +174,7 @@ class ConnectionManager:
                 except Exception:
                     pass
                 del self._clients[key]
+            self._sessions.pop(nas_name, None)
 
     def list_connections(self) -> list[dict[str, str]]:
         """List all active connections."""
